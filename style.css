@@ -274,6 +274,28 @@ form button {
     font-style: italic;
 }
 
+/* Add to style.css */
+.card-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+.card-actions button {
+    flex: 1;
+}
+.btn-delete {
+    background-color: #fee2e2;
+    color: #dc3545;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.btn-delete:hover {
+    background-color: #fecaca;
+}
+
 /* Analytics Chart Container */
 .chart-container {
     background: white;
