@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SusuBank</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1><i class="fa-solid fa-piggy-bank"></i> SusuBank</h1>
+    </header>
+
+    <main id="app-container">
+
+        <!-- Customers Screen -->
+        <section id="customers-screen" class="screen active">
+            <div class="screen-header">
+                <h2>Customers</h2>
+                <button id="add-customer-btn" class="btn-primary">
+                    <i class="fa-solid fa-plus"></i> Create New Customer
+                </button>
+            </div>
+            <div id="customer-list" class="customer-list">
+                <!-- Customer cards injected here -->
+            </div>
+        </section>
+
+        <!-- Transactions Screen -->
+        <section id="transactions-screen" class="screen">
+            <div class="screen-header">
+                <h2>Transactions</h2>
+                <button id="add-transaction-btn" class="btn-primary">
+                    <i class="fa-solid fa-plus"></i> Add New Transaction
+                </button>
+            </div>
+            <div id="transaction-list" class="transaction-list">
+                <!-- Transaction lists injected here -->
+            </div>
+        </section>
+
+        <!-- Analytics Screen -->
+        <section id="analytics-screen" class="screen">
+            <div class="screen-header">
+                <h2>Analytics</h2>
+            </div>
+            <div class="chart-container">
+                <h3>Transactions Overview</h3>
+                <canvas id="transactionsChart"></canvas>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" data-target="customers-screen">
+            <i class="fa-solid fa-users"></i>
+            <span>Customers</span>
+        </button>
+        <button class="nav-btn" data-target="transactions-screen">
+            <i class="fa-solid fa-exchange-alt"></i>
+            <span>Transactions</span>
+        </button>
+        <button class="nav-btn" data-target="analytics-screen">
+            <i class="fa-solid fa-chart-pie"></i>
+            <span>Analytics</span>
+        </button>
+    </nav>
+
+    <!-- Customer Modal -->
+    <div id="customer-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" data-modal="customer-modal">&times;</button>
+            <h3 id="customer-modal-title">Create New Customer</h3>
+            <form id="customer-form">
+                <input type="hidden" id="customer-index">
+                <label>Customer Name</label>
+                <input type="text" id="customer-name" required>
+                <label>Phone Number</label>
+                <input type="tel" id="customer-phone" required>
+                <label>Location</label>
+                <input type="text" id="customer-location" required>
+                <label>Initial Account Balance (₵)</label>
+                <input type="number" id="customer-balance" step="0.01" min="0" required>
+                <button type="submit" class="btn-primary">Save Customer</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transaction Modal -->
+    <div id="transaction-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" data-modal="transaction-modal">&times;</button>
+            <h3>Add New Transaction</h3>
+            <form id="transaction-form">
+                <label>Select Customer</label>
+                <select id="transaction-customer" required>
+                    <option value="">-- Select Customer --</option>
+                </select>
+                <label>Transaction Type</label>
+                <select id="transaction-type" required>
+                    <option value="deposit">Deposit</option>
+                    <option value="withdrawal">Withdrawal</option>
+                </select>
+                <label>Amount (₵)</label>
+                <input type="number" id="transaction-amount" step="0.01" min="0.01" required>
+                <button type="submit" class="btn-primary">Save Transaction</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
