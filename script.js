@@ -99,7 +99,7 @@ customerForm.addEventListener('submit', (e) => {
     const balance = parseFloat(document.getElementById('customer-balance').value);
     
     // Generate Account Number if new, otherwise keep existing
-    const accNum = editIndex !== -1 ? customers[editIndex].accountNumber : 'SUS' + Date.now().toString().slice(-6);
+    const accNum = editIndex !== -1 ? customers[editIndex].accountNumber : 'PESE' + Date.now().toString().slice(-6);
     
     const customerData = {
         accountNumber: accNum,
