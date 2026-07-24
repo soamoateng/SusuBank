@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pese Microfinance</title>
+    <title>Pese Susu</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <header>
-        <h1><i class="fa-solid fa-money-bill-transfer"></i> Pese Microfinance</h1>
+        <h1><i class="fa-solid fa-money-bill-transfer"></i> Pese Susu</h1>
     </header>
 
     <main id="app-container">
@@ -22,6 +22,10 @@
                 <button id="add-customer-btn" class="btn-primary">
                     <i class="fa-solid fa-plus"></i> Create New Customer
                 </button>
+            </div>
+            <!-- NEW: Customer Search Bar -->
+            <div class="search-filter-bar">
+                <input type="text" id="customer-search" placeholder="Search by name or account number...">
             </div>
             <div id="customer-list" class="customer-list">
                 <!-- Customer cards injected here -->
@@ -36,6 +40,17 @@
                     <i class="fa-solid fa-plus"></i> Add New Transaction
                 </button>
             </div>
+            <!-- NEW: Transaction Filters -->
+            <div class="search-filter-bar">
+                <select id="transaction-filter-type">
+                    <option value="all">All Types</option>
+                    <option value="deposit">Deposits</option>
+                    <option value="withdrawal">Withdrawals</option>
+                </select>
+                <select id="transaction-filter-customer">
+                    <option value="all">All Customers</option>
+                </select>
+            </div>
             <div id="transaction-list" class="transaction-list">
                 <!-- Transaction lists injected here -->
             </div>
@@ -45,6 +60,15 @@
         <section id="analytics-screen" class="screen">
             <div class="screen-header">
                 <h2>Analytics</h2>
+                <!-- NEW: Export/Import Buttons -->
+                <div class="analytics-actions">
+                    <button id="export-data-btn" class="btn-secondary">
+                        <i class="fa-solid fa-file-export"></i> Export
+                    </button>
+                    <button id="import-data-btn" class="btn-secondary">
+                        <i class="fa-solid fa-file-import"></i> Import
+                    </button>
+                </div>
             </div>
             <div class="chart-container">
                 <h3>Transactions Overview</h3>
@@ -73,7 +97,7 @@
     <!-- Customer Modal -->
     <div id="customer-modal" class="modal">
         <div class="modal-content">
-            <button class="close-btn" data-modal="customer-modal">&times;</button>
+            <button class="close-btn" data-modal="customer-modal" aria-label="Close modal">&times;</button>
             <h3 id="customer-modal-title">Create New Customer</h3>
             <form id="customer-form">
                 <input type="hidden" id="customer-index">
@@ -93,7 +117,7 @@
     <!-- Transaction Modal -->
     <div id="transaction-modal" class="modal">
         <div class="modal-content">
-            <button class="close-btn" data-modal="transaction-modal">&times;</button>
+            <button class="close-btn" data-modal="transaction-modal" aria-label="Close modal">&times;</button>
             <h3>Add New Transaction</h3>
             <form id="transaction-form">
                 <label>Select Customer</label>
@@ -112,7 +136,23 @@
         </div>
     </div>
 
+    <!-- Custom Alert/Confirm Modal -->
+    <div id="alert-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" data-modal="alert-modal" aria-label="Close modal">&times;</button>
+            <h3 id="alert-modal-title">Notice</h3>
+            <p id="alert-modal-message"></p>
+            <div class="card-actions">
+                <button id="alert-cancel-btn" class="btn-edit" style="display: none;">Cancel</button>
+                <button id="alert-ok-btn" class="btn-primary" style="justify-content: center;">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Hidden file input for importing data -->
+    <input type="file" id="import-file-input" accept=".json" style="display: none;">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script.js"></script>
 </body>
-</html>
+    </html>
