@@ -50,6 +50,8 @@ main {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .screen-header h2 {
@@ -219,6 +221,8 @@ main {
     max-width: 500px;
     animation: slideUp 0.3s ease;
     position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 @keyframes slideUp {
@@ -326,4 +330,59 @@ form button {
     .modal {
         align-items: center;
     }
+    .bottom-nav {
+        max-width: 800px;
+        left: 0;
+        right: 0;
+        margin: 0 auto;
+    }
+}
+
+/* Custom Alert/Confirm Modal Styles */
+#alert-modal .modal-content {
+    text-align: center;
+}
+#alert-modal-message {
+    font-size: 1rem;
+    color: #555;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+#alert-modal .card-actions {
+    margin-top: 0;
+}
+
+/* NEW: Search and Filter Bar Styles */
+.search-filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.search-filter-bar input, .search-filter-bar select {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+/* NEW: Secondary Button Styles (for Export/Import) */
+.btn-secondary {
+    background-color: #e9ecef;
+    color: #333;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.btn-secondary:hover {
+    background-color: #ced4da;
+}
+.analytics-actions {
+    display: flex;
+    gap: 10px;
 }
