@@ -4,6 +4,9 @@
 let customers = JSON.parse(localStorage.getItem('susu_customers')) || [];
 let transactions = JSON.parse(localStorage.getItem('susu_transactions')) || [];
 let editIndex = -1;
+let lastFocusedElement = null; 
+let confirmCallback = null; 
+let chartInitialized = false; 
 
 // ==========================================
 // DOM Elements
@@ -16,6 +19,47 @@ const customerForm = document.getElementById('customer-form');
 const transactionForm = document.getElementById('transaction-form');
 const customerSelect = document.getElementById('transaction-customer');
 
+// Custom Alert DOM Elements
+const alertModal = document.getElementById('alert-modal');
+const alertMessage = document.getElementById('alert-modal-message');
+const alertOkBtn = document.getElementById('alert-ok-btn');
+const alertCancelBtn = document.getElementById('alert-cancel-btn');
+const alertTitle = document.getElementById('alert-modal-title');
+
+// Search/Filter DOM Elements
+const customerSearch = document.getElementById('customer-search');
+const txnFilterType = document.getElementById('transaction-filter-type');
+const txnFilterCustomer = document.getElementById('transaction-filter-customer');
+
+// Export/Import DOM Elements
+const exportBtn = document.getElementById('export-data-btn');
+const importBtn = document.getElementById('import-data-btn');
+const importFileInput = document.getElementById('import-file-input');
+
+// ==========================================
+// Security & Utility Functions
+// ==========================================
+function escapeHtml(str) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/[&<>"']/g, function (char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char];
+    });
+}
+
+function roundCurrency(num) {
+    return Math.round((Number(num) + Number.EPSILON) * 100) / 100;
+}
+
+function generateId(prefix) {
+    return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5).toUpperCase();
+}
+
 // ==========================================
 // Navigation Logic
 // ==========================================
@@ -23,19 +67,21 @@ navBtns.forEach(btn => {
     btn.addEventListener('click', () => {
         const target = btn.dataset.target;
         
-        // Switch screens
         screens.forEach(screen => screen.classList.remove('active'));
         document.getElementById(target).classList.add('active');
         
-        // Switch active button state
         navBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         
-        // Resize chart when analytics tab is opened to ensure it renders correctly
-        if(target === 'analytics-screen' && window.txnChart) {
-            setTimeout(() => {
-                window.txnChart.resize();
-            }, 100);
+        if(target === 'analytics-screen') {
+            if (!chartInitialized) {
+                initChart();
+                chartInitialized = true;
+            } else if (window.txnChart) {
+                setTimeout(() => {
+                    window.txnChart.resize();
+                }, 100);
+            }
         }
     });
 });
@@ -56,21 +102,44 @@ document.getElementById('add-transaction-btn').addEventListener('click', () => {
 document.querySelectorAll('.close-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         const modalId = btn.dataset.modal;
-        document.getElementById(modalId).classList.remove('active');
+        closeModal(document.getElementById(modalId));
+    });
+});
+
+document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal(modal);
+        }
     });
 });
 
 function openModal(modal) {
+    lastFocusedElement = document.activeElement; 
     modal.classList.add('active');
+    
+    setTimeout(() => {
+        const focusable = modal.querySelector('input:not([disabled]), select');
+        if (focusable) focusable.focus();
+    }, 100);
 }
 
 function closeModal(modal) {
     modal.classList.remove('active');
+    
+    if (modal.id === 'alert-modal') {
+        confirmCallback = null;
+    }
+    
+    if (lastFocusedElement) {
+        lastFocusedElement.focus();
+    }
 }
 
 function openCustomerModal(index = -1) {
     editIndex = index;
     const title = document.getElementById('customer-modal-title');
+    const balanceInput = document.getElementById('customer-balance');
     
     if(index !== -1) {
         title.innerText = "Edit Customer";
@@ -80,12 +149,48 @@ function openCustomerModal(index = -1) {
         document.getElementById('customer-phone').value = c.phone;
         document.getElementById('customer-location').value = c.location;
         document.getElementById('customer-balance').value = c.balance;
+        balanceInput.disabled = true;
     } else {
         title.innerText = "Create New Customer";
         customerForm.reset();
+        balanceInput.disabled = false;
     }
     openModal(customerModal);
 }
+
+// ==========================================
+// Custom Alert/Confirm Logic
+// ==========================================
+function showAlert(message) {
+    alertTitle.innerText = "Notice";
+    alertMessage.innerText = message;
+    alertCancelBtn.style.display = 'none';
+    alertOkBtn.innerText = "OK";
+    openModal(alertModal);
+}
+
+function showConfirm(message, callback) {
+    alertTitle.innerText = "Are you sure?";
+    alertMessage.innerText = message;
+    alertCancelBtn.style.display = 'block';
+    alertOkBtn.innerText = "Confirm";
+    alertCancelBtn.innerText = "Cancel";
+    confirmCallback = callback;
+    openModal(alertModal);
+}
+
+alertOkBtn.addEventListener('click', () => {
+    if (typeof confirmCallback === 'function') {
+        confirmCallback();
+    }
+    confirmCallback = null;
+    closeModal(alertModal);
+});
+
+alertCancelBtn.addEventListener('click', () => {
+    confirmCallback = null;
+    closeModal(alertModal);
+});
 
 // ==========================================
 // Customer Logic
@@ -96,10 +201,10 @@ customerForm.addEventListener('submit', (e) => {
     const name = document.getElementById('customer-name').value;
     const phone = document.getElementById('customer-phone').value;
     const location = document.getElementById('customer-location').value;
-    const balance = parseFloat(document.getElementById('customer-balance').value);
+    let balance = parseFloat(document.getElementById('customer-balance').value) || 0;
+    balance = roundCurrency(balance);
     
-    // Generate Account Number if new, otherwise keep existing
-    const accNum = editIndex !== -1 ? customers[editIndex].accountNumber : 'PESE' + Date.now().toString().slice(-6);
+    const accNum = editIndex !== -1 ? customers[editIndex].accountNumber : generateId('PESE');
     
     const customerData = {
         accountNumber: accNum,
@@ -110,37 +215,57 @@ customerForm.addEventListener('submit', (e) => {
     };
     
     if(editIndex !== -1) {
+        customerData.balance = customers[editIndex].balance;
         customers[editIndex] = customerData;
     } else {
         customers.push(customerData);
+        
+        if (balance > 0) {
+            transactions.push({
+                id: generateId('TXN'),
+                accountNumber: accNum,
+                type: 'deposit',
+                amount: balance,
+                date: new Date().toISOString() // NEW: Timestamp for initial balance
+            });
+        }
     }
     
     saveData();
     renderCustomers();
+    renderTransactions(); 
     closeModal(customerModal);
 });
 
 function renderCustomers() {
     const list = document.getElementById('customer-list');
-    if(customers.length === 0) {
-        list.innerHTML = '<div class="empty-state">No customers yet. Click "Create New Customer" to start.</div>';
+    const searchTerm = customerSearch.value.toLowerCase();
+    
+    // Filter customers based on search term
+    const filteredCustomers = customers.filter(c => 
+        c.name.toLowerCase().includes(searchTerm) || 
+        c.accountNumber.toLowerCase().includes(searchTerm)
+    );
+    
+    if(filteredCustomers.length === 0) {
+        list.innerHTML = `<div class="empty-state">No customers found.${searchTerm ? ' Try a different search.' : ' Click "Create New Customer" to start.'}</div>`;
         return;
     }
     
-    list.innerHTML = customers.map((c) => `
+    list.innerHTML = filteredCustomers.map((c) => `
         <div class="customer-card">
-            <h3>${c.name}</h3>
+            <h3>${escapeHtml(c.name)}</h3>
             <div class="customer-info">
-                <p><strong>Acc Num:</strong> ${c.accountNumber}</p>
-                <p><strong>Phone:</strong> ${c.phone}</p>
-                <p><strong>Location:</strong> ${c.location}</p>
-                <p class="balance">Balance: ₵${c.balance.toFixed(2)}</p>
+                <p><strong>Acc Num:</strong> ${escapeHtml(c.accountNumber)}</p>
+                <p><strong>Phone:</strong> ${escapeHtml(c.phone)}</p>
+                <p><strong>Location:</strong> ${escapeHtml(c.location)}</p>
+                <p class="balance">Balance: ₵${Number(c.balance || 0).toFixed(2)}</p>
             </div>
             <div class="card-actions">
                 <button class="btn-edit" onclick="openCustomerModal(${customers.indexOf(c)})">
                     <i class="fa-solid fa-pen-to-square"></i> Edit
                 </button>
-                <button class="btn-delete" onclick="handleDeleteCustomer('${c.accountNumber}')">
+                <button class="btn-delete" onclick="handleDeleteCustomer('${escapeHtml(c.accountNumber)}')">
                     <i class="fa-solid fa-trash"></i> Delete
                 </button>
             </div>
@@ -152,20 +277,14 @@ function handleDeleteCustomer(accNum) {
     const customer = customers.find(c => c.accountNumber === accNum);
     if(!customer) return;
     
-    if(confirm(`Are you sure you want to delete ${customer.name}?`)) {
-        // 1. Remove the customer
+    showConfirm(`Are you sure you want to delete ${customer.name}?`, () => {
         customers = customers.filter(c => c.accountNumber !== accNum);
+        transactions = transactions.filter(t => t.accountNumber !== accNum);
         
-        // 2. OPTIONAL: Handle their historical transactions.
-        // For now, we will leave them as historical records so the transaction screen doesn't break.
-        // If you want to delete their transactions too, uncomment the line below:
-        // transactions = transactions.filter(t => t.accountNumber !== accNum);
-        
-        // 3. Save and refresh UI
         saveData();
         renderCustomers();
         renderTransactions(); 
-    }
+    });
 }
 
 // ==========================================
@@ -173,57 +292,69 @@ function handleDeleteCustomer(accNum) {
 // ==========================================
 function populateCustomerDropdown() {
     if(customers.length === 0) {
-        alert("Please create a customer first before adding transactions.");
+        showAlert("Please create a customer first before adding transactions.");
         return false;
     }
     
     customerSelect.innerHTML = '<option value="">-- Select Customer --</option>';
-    customers.forEach((c, index) => {
+    customers.forEach((c) => {
         const option = document.createElement('option');
-        option.value = index;
-        option.innerText = `${c.name} (${c.accountNumber}) - Bal: ₵${c.balance.toFixed(2)}`;
+        option.value = c.accountNumber;
+        option.innerText = `${c.name} (${c.accountNumber}) - Bal: ₵${Number(c.balance || 0).toFixed(2)}`;
         customerSelect.appendChild(option);
     });
     return true;
 }
 
+// NEW: Populate the filter dropdown on the Transactions screen
+function populateTransactionFilterDropdown() {
+    txnFilterCustomer.innerHTML = '<option value="all">All Customers</option>';
+    customers.forEach((c) => {
+        const option = document.createElement('option');
+        option.value = c.accountNumber;
+        option.innerText = c.name;
+        txnFilterCustomer.appendChild(option);
+    });
+}
+
 transactionForm.addEventListener('submit', (e) => {
     e.preventDefault();
     
-    const custIndex = parseInt(document.getElementById('transaction-customer').value);
+    const accNum = document.getElementById('transaction-customer').value;
+    if(!accNum) {
+        showAlert("Please select a customer.");
+        return;
+    }
+    
+    const customer = customers.find(c => c.accountNumber === accNum);
+    if(!customer) return;
+    
     const type = document.getElementById('transaction-type').value;
-    const amount = parseFloat(document.getElementById('transaction-amount').value);
+    let amount = parseFloat(document.getElementById('transaction-amount').value);
     
-    if(isNaN(custIndex)) {
-        alert("Please select a customer.");
+    if (isNaN(amount) || amount <= 0) {
+        showAlert("Amount must be a valid number greater than zero.");
         return;
     }
+    amount = roundCurrency(amount);
     
-    const customer = customers[custIndex];
-    
-    // Business Logic: Prevent overdraft
     if(type === 'withdrawal' && amount > customer.balance) {
-        alert(`Insufficient funds! ${customer.name} only has ₵${customer.balance.toFixed(2)}`);
+        showAlert(`Insufficient funds! ${customer.name} only has ₵${Number(customer.balance || 0).toFixed(2)}`);
         return;
     }
     
-    // Update Customer Balance
     if(type === 'deposit') {
-        customer.balance += amount;
+        customer.balance = roundCurrency(customer.balance + amount);
     } else {
-        customer.balance -= amount;
+        customer.balance = roundCurrency(customer.balance - amount);
     }
     
-    // Generate Unique Transaction ID
-    const txnId = 'TXN' + Date.now().toString().slice(-8);
-    
-    // Save Transaction Record
     transactions.push({
-        id: txnId,
+        id: generateId('TXN'),
         accountNumber: customer.accountNumber,
-        customerName: customer.name,
         type: type,
-        amount: amount
+        amount: amount,
+        date: new Date().toISOString() // NEW: Add timestamp
     });
     
     saveData();
@@ -235,27 +366,48 @@ transactionForm.addEventListener('submit', (e) => {
 
 function renderTransactions() {
     const list = document.getElementById('transaction-list');
-    if(transactions.length === 0) {
-        list.innerHTML = '<div class="empty-state">No transactions yet. Click "Add New Transaction" to start.</div>';
+    
+    // Ensure filter dropdown is up-to-date
+    populateTransactionFilterDropdown();
+    
+    const typeFilter = txnFilterType.value;
+    const custFilter = txnFilterCustomer.value;
+    
+    // Filter transactions based on dropdowns
+    let filteredTxns = transactions.filter(t => {
+        let match = true;
+        if (typeFilter !== 'all') match = match && (t.type === typeFilter);
+        if (custFilter !== 'all') match = match && (t.accountNumber === custFilter);
+        return match;
+    });
+    
+    if(filteredTxns.length === 0) {
+        list.innerHTML = '<div class="empty-state">No transactions found matching your filters.</div>';
         return;
     }
     
-    // Sort by newest first
-    const sortedTxns = [...transactions].reverse();
+    const sortedTxns = [...filteredTxns].reverse();
     
-    list.innerHTML = sortedTxns.map(t => `
+    list.innerHTML = sortedTxns.map(t => {
+        const cust = customers.find(c => c.accountNumber === t.accountNumber);
+        const displayName = cust ? escapeHtml(cust.name) : 'Deleted Customer';
+        const txDate = t.date ? new Date(t.date).toLocaleString() : 'N/A'; // NEW: Format date
+        
+        return `
         <div class="transaction-item">
             <div class="transaction-info">
-                <h4>${t.customerName}</h4>
-                <p>ID: ${t.id}</p>
-                <p>Acc: ${t.accountNumber}</p>
+                <h4>${displayName}</h4>
+                <p>ID: ${escapeHtml(t.id)}</p>
+                <p>Acc: ${escapeHtml(t.accountNumber)}</p>
                 <p>Type: ${t.type.charAt(0).toUpperCase() + t.type.slice(1)}</p>
+                <p>Date: ${txDate}</p> <!-- NEW: Display Date -->
             </div>
             <div class="transaction-amount ${t.type}">
-                ${t.type === 'deposit' ? '+' : '-'}₵${t.amount.toFixed(2)}
+                ${t.type === 'deposit' ? '+' : '-'}₵${Number(t.amount || 0).toFixed(2)}
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // ==========================================
@@ -264,8 +416,8 @@ function renderTransactions() {
 function initChart() {
     const ctx = document.getElementById('transactionsChart').getContext('2d');
     
-    const deposits = transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0);
-    const withdrawals = transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + t.amount, 0);
+    const deposits = transactions.filter(t => t.type === 'deposit').reduce((sum, t) => roundCurrency(sum + Number(t.amount || 0)), 0);
+    const withdrawals = transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => roundCurrency(sum + Number(t.amount || 0)), 0);
     
     window.txnChart = new Chart(ctx, {
         type: 'doughnut',
@@ -294,12 +446,67 @@ function initChart() {
 function updateChart() {
     if(!window.txnChart) return;
     
-    const deposits = transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0);
-    const withdrawals = transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + t.amount, 0);
+    const deposits = transactions.filter(t => t.type === 'deposit').reduce((sum, t) => roundCurrency(sum + Number(t.amount || 0)), 0);
+    const withdrawals = transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => roundCurrency(sum + Number(t.amount || 0)), 0);
     
     window.txnChart.data.datasets[0].data = [deposits, withdrawals];
     window.txnChart.update();
 }
+
+// ==========================================
+// Data Export / Import Logic
+// ==========================================
+exportBtn.addEventListener('click', () => {
+    const dataStr = JSON.stringify({ customers, transactions }, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pese-susu-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+});
+
+importBtn.addEventListener('click', () => {
+    importFileInput.click();
+});
+
+importFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const data = JSON.parse(event.target.result);
+            if (data.customers && data.transactions) {
+                showConfirm("Importing will overwrite ALL current data. Are you sure you want to continue?", () => {
+                    customers = data.customers;
+                    transactions = data.transactions;
+                    saveData();
+                    renderCustomers();
+                    renderTransactions();
+                    showAlert("Data imported successfully!");
+                });
+            } else {
+                showAlert("Invalid backup file format.");
+            }
+        } catch (err) {
+            showAlert("Error reading file. Please ensure it is a valid JSON backup.");
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input so same file can be selected again
+});
+
+// ==========================================
+// Event Listeners for Search/Filter
+// ==========================================
+customerSearch.addEventListener('input', renderCustomers);
+txnFilterType.addEventListener('change', renderTransactions);
+txnFilterCustomer.addEventListener('change', renderTransactions);
 
 // ==========================================
 // Persistence
@@ -307,7 +514,7 @@ function updateChart() {
 function saveData() {
     localStorage.setItem('susu_customers', JSON.stringify(customers));
     localStorage.setItem('susu_transactions', JSON.stringify(transactions));
-    updateChart(); // Update chart whenever data changes
+    updateChart(); 
 }
 
 // ==========================================
@@ -316,7 +523,6 @@ function saveData() {
 function init() {
     renderCustomers();
     renderTransactions();
-    initChart();
 }
 
 init();
