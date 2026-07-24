@@ -226,7 +226,7 @@ customerForm.addEventListener('submit', (e) => {
                 accountNumber: accNum,
                 type: 'deposit',
                 amount: balance,
-                date: new Date().toISOString() // NEW: Timestamp for initial balance
+                date: new Date().toISOString()
             });
         }
     }
@@ -241,7 +241,6 @@ function renderCustomers() {
     const list = document.getElementById('customer-list');
     const searchTerm = customerSearch.value.toLowerCase();
     
-    // Filter customers based on search term
     const filteredCustomers = customers.filter(c => 
         c.name.toLowerCase().includes(searchTerm) || 
         c.accountNumber.toLowerCase().includes(searchTerm)
@@ -306,7 +305,6 @@ function populateCustomerDropdown() {
     return true;
 }
 
-// NEW: Populate the filter dropdown on the Transactions screen
 function populateTransactionFilterDropdown() {
     txnFilterCustomer.innerHTML = '<option value="all">All Customers</option>';
     customers.forEach((c) => {
@@ -354,7 +352,7 @@ transactionForm.addEventListener('submit', (e) => {
         accountNumber: customer.accountNumber,
         type: type,
         amount: amount,
-        date: new Date().toISOString() // NEW: Add timestamp
+        date: new Date().toISOString()
     });
     
     saveData();
@@ -366,14 +364,11 @@ transactionForm.addEventListener('submit', (e) => {
 
 function renderTransactions() {
     const list = document.getElementById('transaction-list');
-    
-    // Ensure filter dropdown is up-to-date
     populateTransactionFilterDropdown();
     
     const typeFilter = txnFilterType.value;
     const custFilter = txnFilterCustomer.value;
     
-    // Filter transactions based on dropdowns
     let filteredTxns = transactions.filter(t => {
         let match = true;
         if (typeFilter !== 'all') match = match && (t.type === typeFilter);
@@ -391,7 +386,7 @@ function renderTransactions() {
     list.innerHTML = sortedTxns.map(t => {
         const cust = customers.find(c => c.accountNumber === t.accountNumber);
         const displayName = cust ? escapeHtml(cust.name) : 'Deleted Customer';
-        const txDate = t.date ? new Date(t.date).toLocaleString() : 'N/A'; // NEW: Format date
+        const txDate = t.date ? new Date(t.date).toLocaleString() : 'N/A';
         
         return `
         <div class="transaction-item">
@@ -400,14 +395,44 @@ function renderTransactions() {
                 <p>ID: ${escapeHtml(t.id)}</p>
                 <p>Acc: ${escapeHtml(t.accountNumber)}</p>
                 <p>Type: ${t.type.charAt(0).toUpperCase() + t.type.slice(1)}</p>
-                <p>Date: ${txDate}</p> <!-- NEW: Display Date -->
+                <p>Date: ${txDate}</p>
             </div>
             <div class="transaction-amount ${t.type}">
                 ${t.type === 'deposit' ? '+' : '-'}₵${Number(t.amount || 0).toFixed(2)}
             </div>
+            <!-- NEW: Delete Button for Transactions -->
+            <button class="btn-delete" onclick="handleDeleteTransaction('${escapeHtml(t.id)}')" style="width: auto; padding: 8px 12px; margin-top: 0; margin-left: 10px; flex-shrink: 0;">
+                <i class="fa-solid fa-trash"></i>
+            </button>
         </div>
         `;
     }).join('');
+}
+
+// NEW: Handle deletion of transactions and reverse balance
+function handleDeleteTransaction(txnId) {
+    const txn = transactions.find(t => t.id === txnId);
+    if(!txn) return;
+    
+    showConfirm(`Are you sure you want to delete this transaction? This will automatically adjust the customer's balance.`, () => {
+        // 1. Reverse the balance change on the customer
+        const customer = customers.find(c => c.accountNumber === txn.accountNumber);
+        if (customer) {
+            if (txn.type === 'deposit') {
+                customer.balance = roundCurrency(customer.balance - txn.amount);
+            } else if (txn.type === 'withdrawal') {
+                customer.balance = roundCurrency(customer.balance + txn.amount);
+            }
+        }
+        
+        // 2. Remove the transaction
+        transactions = transactions.filter(t => t.id !== txnId);
+        
+        // 3. Save and refresh UI
+        saveData();
+        renderCustomers();
+        renderTransactions();
+    });
 }
 
 // ==========================================
@@ -457,16 +482,7 @@ function updateChart() {
 // Data Export / Import Logic
 // ==========================================
 exportBtn.addEventListener('click', () => {
-    const dataStr = JSON.stringify({ customers, transactions }, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pese-susu-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    window.print();
 });
 
 importBtn.addEventListener('click', () => {
@@ -498,7 +514,7 @@ importFileInput.addEventListener('change', (e) => {
         }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset input so same file can be selected again
+    e.target.value = '';
 });
 
 // ==========================================
